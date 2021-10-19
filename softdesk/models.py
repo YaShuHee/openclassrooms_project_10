@@ -42,4 +42,4 @@ class Comments(models.Model):
 
 class Contributors(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="contributions")
-    project = models.ForeignKey("Project", on_delete=models.CASCADE, related_name="contributions")
+    project = models.ForeignKey("Project", on_delete=models.CASCADE, related_name="contributors")

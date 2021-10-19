@@ -6,7 +6,7 @@ from .models import User, Project, Issue, Contributors, Comments
 class UserSerializer(ModelSerializer):
     class Meta:
         model = User
-        fields = ["username", "password"]
+        fields = "__all__"
 
 
 class IssueSerializer(ModelSerializer):
