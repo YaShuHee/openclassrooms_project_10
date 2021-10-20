@@ -2,6 +2,7 @@ from itertools import chain
 
 from django.contrib.auth import authenticate
 from django.db.utils import IntegrityError
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -10,26 +11,26 @@ from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 from rest_framework_jwt.settings import api_settings
 
 from .models import User, Project, Issue, Comments, Contributors
-from .serializers import UserSerializer, ProjectSerializer, IssueSerializer, CommentsSerializer, ContributorsSerializer
+from .serializers import ProjectSerializer
 
 
 class SignUpAPIView(APIView):
+    # TODO: OK
     def post(self, request):
-        """ Return username and status : successful or failed (if failed, details)."""
         username = request.data["username"]
         password = request.data["password"]
         try:
             user = User.objects.create_user(username=username, password=password)
         except IntegrityError:
             data = {
-                "created": "false",
-                "detail": "An account with this username already exists."
+                "created": False,
+                "detail": "An account with this username already exists.",
+                "username": username
             }
         else:
             user.save()
             data = {
-                "created": "true",
-                "detail": "Account successfully created.",
+                "created": True,
                 "id": user.id,
                 "username": username
             }
@@ -37,6 +38,7 @@ class SignUpAPIView(APIView):
 
 
 class LoginAPIView(APIView):
+    # TODO: OK
     def post(self, request):
         username = request.data["username"]
         password = request.data["password"]
@@ -46,23 +48,23 @@ class LoginAPIView(APIView):
             jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
             payload = jwt_payload_handler(user)
             token = jwt_encode_handler(payload)
-            data = {"token": token}
+            data = {
+                "logged_in": True,
+                "token": token
+            }
         else:
-            data = {"detail": "Bad username/password combination."}
+            data = {
+                "logged_in": False,
+                "detail": "Bad username & password combination."
+            }
         return Response(data)
 
 
 class ProjectsAPIView(APIView):
-    KEYS = [
-        "title",
-        "description",
-        "type",
-        "author",
-    ]
-
     authentication_classes = (JSONWebTokenAuthentication,)
     permission_classes = (IsAuthenticated,)
 
+    # TODO: OK
     def get(self, request):
         user = request.user
         contributing = [contribution.user for contribution in Contributors.objects.filter(user=user)]
@@ -73,113 +75,220 @@ class ProjectsAPIView(APIView):
         }
         return Response(data)
 
+    # TODO: OK
     def post(self, request):
-        try:
-            request_data = {key: request.data[key] for key in self.KEYS}
-        except KeyError as e:
-            data = {
-                "created": "false",
-                "detail": f"Missing '{e.args[0]}'."
-            }
-        else:
-            project = Project.objects.create(**request_data)
+        serializer = ProjectSerializer(data=request.data)
+        if serializer.is_valid():
+            project = Project.objects.create(**serializer.validated_data, author=request.user)
             project.save()
-            # return ID and CREATION_DATE (titre)
             data = {
-                "created": "true",
+                "created": True,
                 "id": project.id,
                 "created_time": project.created_time
+            }
+        else:
+            data = {
+                "created": False,
+                "detail": serializer.errors
             }
         return Response(data)
 
 
 class ProjectDetailsAPIView(APIView):
+    authentication_classes = (JSONWebTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    # TODO: OK
     def get(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
-        return Response(ProjectSerializer(project).data)
+        if request.user == project.author:
+            return Response(ProjectSerializer(project).data)
+        else:
+            raise Http404
 
+    # TODO: OK
     def put(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
         if request.user == project.author:
-            Project.objects.filter(id=project_id).update(**request.data)
-            project.save()
-            data = ProjectSerializer(project).data
-            data.update({
-                "modified": "true",
-                "detail": f"Project {project_id} modified."
-            })
+            serializer = ProjectSerializer(data=request.data)
+            if serializer.is_valid():
+                keys = ["title", "description", "type"]
+                for key in keys:
+                    project.__setattr__(key, serializer.validated_data[key])
+                project.save()
+                data = {"modified": True}
+            else:
+                data = {
+                    "modified": False,
+                    "detail": serializer.errors
+                }
+            return Response(data)
         else:
-            data = {
-                "modified": "false",
-                "detail": f"You are not the project {project_id} author."
-            }
-        return Response(data)
+            raise Http404
 
+    # TODO: OK
     def delete(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
         if request.user == project.author:
             project.delete()
             data = {
-                "deleted": "true",
-                "detail": f"Project {project_id} deleted."
+                "deleted": True,
+                "id": project_id
             }
+            return Response(data)
         else:
-            data = {
-                "deleted": "false",
-                "detail": f"You are not the project {project_id} author."
-            }
-        return Response(ProjectSerializer(project).data)
+            raise Http404
 
 
 class ProjectUsersAPIView(APIView):
+    authentication_classes = (JSONWebTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    # TODO
     def get(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
+        if request.user == project.author:
+            pass
+        else:
+            raise Http404
 
+    # TODO
     def post(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
+        if request.user == project.author:
+            pass
+        else:
+            raise Http404
 
+    # TODO
     def delete(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
+        if request.user == project.author:
+            pass
+        else:
+            raise Http404
 
 
 class ProjectIssuesAPIView(APIView):
+    authentication_classes = (JSONWebTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    # TODO
     def get(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
+        if request.user == project.author or request.user in project.contributors:
+            pass
+        else:
+            raise Http404
 
+    # TODO
     def post(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
+        if request.user == project.author or request.user in project.contributors:
+            pass
+        else:
+            raise Http404
 
+    # TODO
     def put(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
+        if request.user == project.author or request.user in project.contributors:
+            if request.user == issue.author:
+                pass
+            else:
+                data = {
+                    "modified": False,
+                    "detail": "You have the right to read this issue, not to modify it."
+                }
+                pass
+        else:
+            raise Http404
 
+    # TODO
     def delete(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
+        if request.user == project.author or request.user in project.contributors:
+            if request.user == issue.author:
+                pass
+            else:
+                data = {
+                    "deleted": False,
+                    "detail": "You have the right to read this issue, not to delete it."
+                }
+                pass
+        else:
+            raise Http404
 
 
 class ProjectIssueCommentsAPIView(APIView):
+    authentication_classes = (JSONWebTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    # TODO
     def get(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
+        if request.user == project.author or request.user in project.contributors:
+            pass
+        else:
+            raise Http404
 
+    # TODO
     def post(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
+        if request.user == project.author or request.user in project.contributors:
+            pass
+        else:
+            raise Http404
 
 
 class ProjectIssueCommentDetailsAPIView(APIView):
+    authentication_classes = (JSONWebTokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    # TODO
     def get(self, request, project_id, issue_id, comment_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
         comment = get_object_or_404(Comments, id=comment_id)
+        if request.user == project.author or request.user in project.contributors:
+            pass
+        else:
+            raise Http404
 
+    # TODO
     def put(self, request, project_id, issue_id, comment_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
         comment = get_object_or_404(Comments, id=comment_id)
+        if request.user == project.author or request.user in project.contributors:
+            if request.user == comment.author:
+                pass
+            else:
+                data = {
+                    "modified": False,
+                    "detail": "You have the right to read this comment, not to modify it."
+                }
+                pass
+        else:
+            raise Http404
 
+    # TODO
     def delete(self, request, project_id, issue_id, comment_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
         comment = get_object_or_404(Comments, id=comment_id)
+        if request.user == project.author or request.user in project.contributors:
+            if request.user == comment.author:
+                pass
+            else:
+                data = {
+                    "modified": False,
+                    "detail": "You have the right to read this comment, not to delete it."
+                }
+                pass
+        else:
+            raise Http404
