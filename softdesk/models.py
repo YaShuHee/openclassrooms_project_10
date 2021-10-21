@@ -4,9 +4,16 @@ from django.db.models.constraints import UniqueConstraint
 
 
 class Project(models.Model):
+    TYPE_CHOICES = [
+        ("B", "BACKEND"),
+        ("F", "FRONTEND"),
+        ("I", "IOS"),
+        ("A", "ANDROID"),
+    ]
+
     title = models.CharField(max_length=100)
     description = models.CharField(max_length=400)
-    type = models.CharField(max_length=10)
+    type = models.CharField(max_length=1, choices=TYPE_CHOICES, default=TYPE_CHOICES[0][0])
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="projects")
     created_time = models.DateTimeField(auto_now_add=True)
 
@@ -30,7 +37,7 @@ class Issue(models.Model):
     priority = models.CharField(max_length=1, choices=PRIORITY_CHOICES, default=PRIORITY_CHOICES[0][0])
     project = models.ForeignKey("Project", on_delete=models.CASCADE, related_name="issues")
     status = models.CharField(max_length=200)
-    author = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="owned_issues", null=True)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="owned_issues", null=True)
     assigned = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="assigned_issues", null=True)
     created_time = models.DateTimeField(auto_now_add=True)
 
