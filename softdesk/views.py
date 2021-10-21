@@ -10,8 +10,8 @@ from rest_framework.views import APIView
 from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 from rest_framework_jwt.settings import api_settings
 
-from .models import User, Project, Issue, Comments, Contributors
-from .serializers import ProjectSerializer
+from .models import User, Project, Contribution, Issue, Comment
+from .serializers import UserSerializer, ProjectSerializer, ContributionSerializer, IssueSerializer, CommentSerializer
 
 
 class SignUpAPIView(APIView):
@@ -55,7 +55,7 @@ class LoginAPIView(APIView):
         else:
             data = {
                 "logged_in": False,
-                "detail": "Bad username & password combination."
+                "detail": "You used a wrong username & password combination."
             }
         return Response(data)
 
@@ -67,9 +67,9 @@ class ProjectsAPIView(APIView):
     # TODO: OK
     def get(self, request):
         user = request.user
-        contributing = [contribution.user for contribution in Contributors.objects.filter(user=user)]
-        owning = Project.objects.filter(author=user)
-        projects = list(chain(contributing, owning))
+        contributed = [contribution.project for contribution in Contribution.objects.filter(user=user)]
+        owned = Project.objects.filter(author=user)
+        projects = list(chain(owned, contributed))
         data = {
             "results": [ProjectSerializer(project).data for project in projects]
         }
@@ -144,27 +144,63 @@ class ProjectUsersAPIView(APIView):
     authentication_classes = (JSONWebTokenAuthentication,)
     permission_classes = (IsAuthenticated,)
 
-    # TODO
+    # TODO: OK
     def get(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
         if request.user == project.author:
-            pass
+            data = {
+                "author": UserSerializer(project.author).data,
+                "contributors": [UserSerializer(contributor.user).data for contributor in project.contributors.all()]
+            }
+            return Response(data)
         else:
             raise Http404
 
-    # TODO
+    # TODO: OK
     def post(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
         if request.user == project.author:
-            pass
+            user_id = request.data["user"]
+            if isinstance(user_id, int):
+                # this absolutely needs UniqueConstraint <user-project> on Contribution model
+                user = get_object_or_404(User, id=int(user_id))
+                if user == project.author:
+                    data = {
+                        "added": False,
+                        "detail": "This user is the project author. They can not be contributor."
+                    }
+                else:
+                    try:
+                        contribution = Contribution.objects.create(user=user, project=project)
+                        contribution.save()
+                        data = {
+                            "added": True
+                        }
+                    except IntegrityError:
+                        data = {
+                            "added": False,
+                            "detail": "This user is already a contributor."
+                        }
+            else:
+                data = {
+                    "added": False,
+                    "detail": "The 'user_id' field must be an integer."
+                }
+            return Response(data)
         else:
             raise Http404
 
-    # TODO
-    def delete(self, request, project_id):
+    # TODO: OK
+    def delete(self, request, project_id, user_id):
         project = get_object_or_404(Project, id=project_id)
+        user = get_object_or_404(User, id=user_id)
         if request.user == project.author:
-            pass
+            contribution = get_object_or_404(Contribution, user=user, project=project)
+            contribution.delete()
+            data = {
+                "deleted": True
+            }
+            return Response(data)
         else:
             raise Http404
 
@@ -253,7 +289,7 @@ class ProjectIssueCommentDetailsAPIView(APIView):
     def get(self, request, project_id, issue_id, comment_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
-        comment = get_object_or_404(Comments, id=comment_id)
+        comment = get_object_or_404(Comment, id=comment_id)
         if request.user == project.author or request.user in project.contributors:
             pass
         else:
@@ -263,7 +299,7 @@ class ProjectIssueCommentDetailsAPIView(APIView):
     def put(self, request, project_id, issue_id, comment_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
-        comment = get_object_or_404(Comments, id=comment_id)
+        comment = get_object_or_404(Comment, id=comment_id)
         if request.user == project.author or request.user in project.contributors:
             if request.user == comment.author:
                 pass
@@ -280,7 +316,7 @@ class ProjectIssueCommentDetailsAPIView(APIView):
     def delete(self, request, project_id, issue_id, comment_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
-        comment = get_object_or_404(Comments, id=comment_id)
+        comment = get_object_or_404(Comment, id=comment_id)
         if request.user == project.author or request.user in project.contributors:
             if request.user == comment.author:
                 pass

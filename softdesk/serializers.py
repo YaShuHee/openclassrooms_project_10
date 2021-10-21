@@ -1,12 +1,15 @@
 from rest_framework.serializers import ModelSerializer
 
-from .models import User, Project, Issue, Contributors, Comments
+from .models import User, Project, Issue, Contribution, Comment
 
 
 class UserSerializer(ModelSerializer):
     class Meta:
         model = User
-        fields = "__all__"
+        fields = ["id", "username"]
+        extra_kwargs = {
+            "password": {"write_only": True}
+        }
 
 
 class IssueSerializer(ModelSerializer):
@@ -29,9 +32,9 @@ class ProjectSerializer(ModelSerializer):
         }
 
 
-class CommentsSerializer(ModelSerializer):
+class CommentSerializer(ModelSerializer):
     class Meta:
-        model = Comments
+        model = Comment
         fields = "__all__"
         extra_kwargs = {
             "author": {"read_only": True},
@@ -39,7 +42,7 @@ class CommentsSerializer(ModelSerializer):
         }
 
 
-class ContributorsSerializer(ModelSerializer):
+class ContributionSerializer(ModelSerializer):
     class Meta:
-        model = Contributors
+        model = Contribution
         fields = "__all__"

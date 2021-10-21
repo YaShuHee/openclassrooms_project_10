@@ -17,4 +17,3 @@ urlpatterns = [
     path('projects/<int:project_id>/issues/<int:issue_id>/comments/', ProjectIssueCommentsAPIView.as_view()),
     path('projects/<int:project_id>/issues/<int:issue_id>/comments/<int:comment_id>/', ProjectIssueCommentDetailsAPIView.as_view()),
 ]
-

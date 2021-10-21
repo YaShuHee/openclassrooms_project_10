@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models.constraints import UniqueConstraint
 
 
 class Issue(models.Model):
@@ -34,12 +35,15 @@ class Project(models.Model):
     created_time = models.DateTimeField(auto_now_add=True)
 
 
-class Comments(models.Model):
+class Comment(models.Model):
     description = models.CharField(max_length=1000)
     issue = models.ForeignKey("Issue", on_delete=models.CASCADE, related_name="comments")
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="comments")
 
 
-class Contributors(models.Model):
+class Contribution(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="contributions")
     project = models.ForeignKey("Project", on_delete=models.CASCADE, related_name="contributors")
+
+    class Meta:
+        constraints = [UniqueConstraint(fields=["user", "project"], name="unique_contribution")]
