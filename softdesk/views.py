@@ -11,7 +11,7 @@ from rest_framework_jwt.authentication import JSONWebTokenAuthentication
 from rest_framework_jwt.settings import api_settings
 
 from .models import User, Project, Contribution, Issue, Comment
-from .serializers import UserSerializer, ProjectSerializer, ContributionSerializer, IssueSerializer, CommentSerializer
+from .serializers import UserSerializer, ProjectSerializer, IssueSerializer, CommentSerializer
 
 
 class SignUpAPIView(APIView):
@@ -50,7 +50,8 @@ class LoginAPIView(APIView):
             token = jwt_encode_handler(payload)
             data = {
                 "logged_in": True,
-                "token": token
+                "token": token,
+                "id": user.id
             }
         else:
             data = {
@@ -209,43 +210,93 @@ class ProjectIssuesAPIView(APIView):
     authentication_classes = (JSONWebTokenAuthentication,)
     permission_classes = (IsAuthenticated,)
 
-    # TODO
+    # TODO: OK
     def get(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
-        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
-            pass
+        if request.user == project.author or project.contributors.filter(user=request.user).count() > 0:
+            issues = Issue.objects.filter(project=project)
+            data = {
+                "results": [IssueSerializer(issue).data for issue in issues]
+            }
+            return Response(data)
         else:
             raise Http404
 
-    # TODO
+    # TODO: OK
     def post(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
-        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
-            pass
+        if request.user == project.author or project.contributors.filter(user=request.user).count() > 0:
+
+            # check if the assigned user exists or is a contributor
+            if "assigned" in request.data:
+                if Contribution.objects.filter(user_id=request.data["assigned"], project=project).count() == 0:
+                    # a wrong user was provided
+                    data = {
+                        "created": False,
+                        "detail": "If this user exists, they are not a contributor. If you let this field empty, you will be assigned this issue."
+                    }
+                    return Response(data)
+                # else:
+                # a correct user was provided
+            else:
+                # the "assigned user" was not provided -> the default one is assigned
+                request.data["assigned"] = request.user.id
+
+            serializer = IssueSerializer(data=request.data)
+            if serializer.is_valid():
+                issue = Issue.objects.create(**serializer.validated_data, author=request.user, project=project)
+                issue.save()
+                data = {
+                    "created": True,
+                    "id": issue.id
+                }
+            else:
+                data = {
+                    "created": False,
+                    "detail": serializer.errors
+                }
+            return Response(data)
         else:
             raise Http404
 
-    # TODO
+    # TODO: OK
     def put(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
-        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
+        if request.user == project.author or project.contributors.filter(user=request.user).count() > 0:
             if request.user == issue.author:
-                pass
+                serializer = IssueSerializer(data=request.data)
+                if serializer.is_valid():
+                    keys = ["title", "description", "status"]
+                    not_required_keys = ["tag", "priority", "assigned"]
+                    for key in keys:
+                        issue.__setattr__(key, serializer.validated_data[key])
+                    for key in not_required_keys:
+                        if key in serializer.validated_data:
+                            issue.__setattr__(key, serializer.validated_data[key])
+                    issue.save()
+                    data = {
+                        "modified": True
+                    }
+                else:
+                    data = {
+                        "modified": False,
+                        "detail": serializer.errors
+                    }
             else:
                 data = {
                     "modified": False,
                     "detail": "You have the right to read this issue, not to modify it."
                 }
-                pass
+            return Response(data)
         else:
             raise Http404
 
-    # TODO
+    # TODO: OK
     def delete(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
-        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
+        if request.user == project.author or project.contributors.filter(user=request.user).count() > 0:
             if request.user == issue.author:
                 issue.delete()
                 data = {
@@ -265,21 +316,38 @@ class ProjectIssueCommentsAPIView(APIView):
     authentication_classes = (JSONWebTokenAuthentication,)
     permission_classes = (IsAuthenticated,)
 
-    # TODO
+    # TODO: OK
     def get(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
-        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
-            pass
+        if request.user == project.author or project.contributors.filter(user=request.user).count() > 0:
+            comments = Comment.objects.filter(issue=issue)
+            data = {
+                "results": [CommentSerializer(comment).data for comment in comments]
+            }
+            return Response(data)
         else:
             raise Http404
 
-    # TODO
+    # TODO: OK
     def post(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
-        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
-            pass
+        if request.user == project.author or project.contributors.filter(user=request.user).count() > 0:
+            serializer = CommentSerializer(data=request.data)
+            if serializer.is_valid():
+                comment = Comment(**serializer.validated_data, author=request.user, issue=issue)
+                comment.save()
+                data = {
+                    "created": True,
+                    "id": comment.id
+                }
+            else:
+                data = {
+                    "created": False,
+                    "detail": serializer.errors
+                }
+            return Response(data)
         else:
             raise Http404
 
@@ -288,34 +356,45 @@ class ProjectIssueCommentDetailsAPIView(APIView):
     authentication_classes = (JSONWebTokenAuthentication,)
     permission_classes = (IsAuthenticated,)
 
-    # TODO
+    # TODO: OK
     def get(self, request, project_id, issue_id, comment_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
         comment = get_object_or_404(Comment, id=comment_id)
         if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
-            pass
+            return Response(CommentSerializer(comment).data)
         else:
             raise Http404
 
-    # TODO
+    # TODO: OK
     def put(self, request, project_id, issue_id, comment_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
         comment = get_object_or_404(Comment, id=comment_id)
         if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
             if request.user == comment.author:
-                pass
+                serializer = CommentSerializer(data=request.data)
+                if serializer.is_valid():
+                    comment.description = serializer.validated_data["description"]
+                    comment.save()
+                    data = {
+                        "modified": True
+                    }
+                else:
+                    data = {
+                        "modified": False,
+                        "detail": serializer.errors
+                    }
             else:
                 data = {
                     "modified": False,
                     "detail": "You have the right to read this comment, not to modify it."
                 }
-                pass
+            return Response(data)
         else:
             raise Http404
 
-    # TODO
+    # TODO: OK
     def delete(self, request, project_id, issue_id, comment_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
