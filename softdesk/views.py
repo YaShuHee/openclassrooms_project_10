@@ -212,7 +212,7 @@ class ProjectIssuesAPIView(APIView):
     # TODO
     def get(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
-        if request.user == project.author or request.user in project.contributors:
+        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
             pass
         else:
             raise Http404
@@ -220,7 +220,7 @@ class ProjectIssuesAPIView(APIView):
     # TODO
     def post(self, request, project_id):
         project = get_object_or_404(Project, id=project_id)
-        if request.user == project.author or request.user in project.contributors:
+        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
             pass
         else:
             raise Http404
@@ -229,7 +229,7 @@ class ProjectIssuesAPIView(APIView):
     def put(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
-        if request.user == project.author or request.user in project.contributors:
+        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
             if request.user == issue.author:
                 pass
             else:
@@ -245,15 +245,18 @@ class ProjectIssuesAPIView(APIView):
     def delete(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
-        if request.user == project.author or request.user in project.contributors:
+        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
             if request.user == issue.author:
-                pass
+                issue.delete()
+                data = {
+                    "deleted": True
+                }
             else:
                 data = {
                     "deleted": False,
                     "detail": "You have the right to read this issue, not to delete it."
                 }
-                pass
+            return Response(data)
         else:
             raise Http404
 
@@ -266,7 +269,7 @@ class ProjectIssueCommentsAPIView(APIView):
     def get(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
-        if request.user == project.author or request.user in project.contributors:
+        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
             pass
         else:
             raise Http404
@@ -275,7 +278,7 @@ class ProjectIssueCommentsAPIView(APIView):
     def post(self, request, project_id, issue_id):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
-        if request.user == project.author or request.user in project.contributors:
+        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
             pass
         else:
             raise Http404
@@ -290,7 +293,7 @@ class ProjectIssueCommentDetailsAPIView(APIView):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
         comment = get_object_or_404(Comment, id=comment_id)
-        if request.user == project.author or request.user in project.contributors:
+        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
             pass
         else:
             raise Http404
@@ -300,7 +303,7 @@ class ProjectIssueCommentDetailsAPIView(APIView):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
         comment = get_object_or_404(Comment, id=comment_id)
-        if request.user == project.author or request.user in project.contributors:
+        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
             if request.user == comment.author:
                 pass
             else:
@@ -317,14 +320,17 @@ class ProjectIssueCommentDetailsAPIView(APIView):
         project = get_object_or_404(Project, id=project_id)
         issue = get_object_or_404(Issue, id=issue_id)
         comment = get_object_or_404(Comment, id=comment_id)
-        if request.user == project.author or request.user in project.contributors:
+        if request.user == project.author or project.contributors.filter(user=request.user).count > 0:
             if request.user == comment.author:
-                pass
+                comment.delete()
+                data = {
+                    "deleted": True
+                }
             else:
                 data = {
-                    "modified": False,
+                    "deleted": False,
                     "detail": "You have the right to read this comment, not to delete it."
                 }
-                pass
+            return Response(data)
         else:
             raise Http404
