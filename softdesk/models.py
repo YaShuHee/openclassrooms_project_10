@@ -3,6 +3,14 @@ from django.contrib.auth.models import User
 from django.db.models.constraints import UniqueConstraint
 
 
+class Project(models.Model):
+    title = models.CharField(max_length=100)
+    description = models.CharField(max_length=400)
+    type = models.CharField(max_length=10)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="projects")
+    created_time = models.DateTimeField(auto_now_add=True)
+
+
 class Issue(models.Model):
     TAG_CHOICES = [
         ("B", "BUG"),
@@ -24,14 +32,6 @@ class Issue(models.Model):
     status = models.CharField(max_length=200)
     author = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="owned_issues", null=True)
     assigned = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="assigned_issues", null=True)
-    created_time = models.DateTimeField(auto_now_add=True)
-
-
-class Project(models.Model):
-    title = models.CharField(max_length=100)
-    description = models.CharField(max_length=400)
-    type = models.CharField(max_length=10)
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="projects")
     created_time = models.DateTimeField(auto_now_add=True)
 
 

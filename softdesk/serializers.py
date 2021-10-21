@@ -12,16 +12,6 @@ class UserSerializer(ModelSerializer):
         }
 
 
-class IssueSerializer(ModelSerializer):
-    class Meta:
-        model = Issue
-        fields = "__all__"
-        extra_kwargs = {
-            "author": {"read_only": True},
-            "created_time": {"read_only": True}
-        }
-
-
 class ProjectSerializer(ModelSerializer):
     class Meta:
         model = Project
@@ -32,12 +22,25 @@ class ProjectSerializer(ModelSerializer):
         }
 
 
+class IssueSerializer(ModelSerializer):
+    class Meta:
+        model = Issue
+        fields = "__all__"
+        extra_kwargs = {
+            "author": {"read_only": True},
+            "project": {"read_only": True},
+            "assigned": {"required": False},
+            "created_time": {"read_only": True}
+        }
+
+
 class CommentSerializer(ModelSerializer):
     class Meta:
         model = Comment
         fields = "__all__"
         extra_kwargs = {
             "author": {"read_only": True},
+            "issue": {"read_only": True},
             "created_time": {"read_only": True}
         }
 
